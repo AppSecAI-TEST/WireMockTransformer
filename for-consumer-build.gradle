@@ -1,0 +1,101 @@
+String nexusBaseURL				= 'https://nexus.discoverfinancial.com:8443'
+String nexusPublicRepoURL		= nexusBaseURL + '/content/groups/public'
+String nexusReleaseRepoURL		= nexusBaseURL + '/content/repositories/releases'
+String nexusSnapshotRepoURL		= nexusBaseURL + '/content/repositories/snapshots'
+String nexusThirdpartyRepoURL   = nexusBaseURL + '/content/repositories/thirdparty/'
+
+buildscript {
+	repositories { maven { url 'https://nexus.discoverfinancial.com:8443/content/groups/public/' } }
+	dependencies {
+		classpath 'com.discover.esqmci:discover-project-plugin:latest.release'
+		classpath 'org.cloudfoundry:cf-gradle-plugin:1.1.3'
+	}
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'application'
+apply plugin: 'cloudfoundry'
+
+
+version = '1.0'
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+compileJava.options.encoding = "UTF-8"
+compileTestJava.options.encoding = "UTF-8"
+
+repositories {
+    maven {
+		url nexusBaseURL+'/content/groups/public/'
+    }
+}
+
+dependencies {   
+	compile ("com.discoverfinancial.esqm.sv:WireMockWithTransformer:1.0") {
+		transitive = false;
+	}
+}
+
+run {
+	mainClassName = "org.discover.sv.transformer.WireMockWrapper"
+}
+
+jar {
+    from {
+        (configurations.runtime).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+
+    from ("__files") { into "__files" }
+    from ("mappings") { into "mappings" }    
+    
+    manifest {
+        attributes("Main-Class": "org.discover.sv.transformer.WireMockWrapper" )
+    }
+
+	//duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+cloudfoundry  {
+	target = "https://api.system.pcfurl.com"
+	organization = "my-org"
+	
+	application = "myapp1"
+	domain = "mydomain.company.com"
+  
+	file = jar.archivePath
+	trustSelfSignedCerts = true
+	
+	variants = ['-blue', '-green']
+	instances = 1
+	
+	env = [
+		"env.var1":"value1"
+	]	  		
+}
+
+task deploy(dependsOn: [build]) {
+  description = 'Deploys the project to a Cloud Foundry space (specified with -Pspace=<targetspace>)'
+  dependsOn 'cfDeploy'
+
+  if (project.hasProperty('SpaceDeployment')) {
+    if ( SpaceDeployment.contains( 'DEVINT' ) ) {
+    // only needed when variants are set up.
+    cloudfoundry {
+	application = "myapp1"
+        domain = "mydomain.company.com"
+
+        file = jar.archivePath
+        trustSelfSignedCerts = true
+
+        variants = ['-blue', '-green']
+        instances = 1
+
+        env = [
+                "env.var1":"value1"
+        ]
+    }
+    dependsOn 'cfSwapDeployed'
+ }}
+}

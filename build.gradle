@@ -1,0 +1,63 @@
+String nexusBaseURL				= 'https://nexus.discoverfinancial.com:8443'
+String nexusPublicRepoURL		= nexusBaseURL + '/content/groups/public'
+String nexusReleaseRepoURL		= nexusBaseURL + '/content/repositories/releases'
+String nexusSnapshotRepoURL		= nexusBaseURL + '/content/repositories/snapshots'
+String nexusThirdpartyRepoURL   = nexusBaseURL + '/content/repositories/thirdparty/'
+
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'maven'
+
+version = '1.0'
+group = 'com.discoverfinancial.esqm.sv'
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+compileJava.options.encoding = "UTF-8"
+compileTestJava.options.encoding = "UTF-8"
+
+repositories {
+    maven {
+		url nexusBaseURL+'/content/groups/public/'
+    }
+}
+
+dependencies {
+    compile "com.github.tomakehurst:wiremock:2.6.0"
+    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.6.1"
+}
+
+jar {
+    baseName = 'WireMockWithTransformer'
+    version = "${version}"
+      from {
+    configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) }
+  }
+    manifest {
+    attributes(
+      'Main-Class': 'org.discover.sv.transformer.WireMockWrapper',
+       'Implementation-Title': 'WireMockWithTransformer', 'Implementation-Version': version
+    )
+  }
+}
+
+artifacts {
+    archives jar   
+}
+ 
+uploadArchives {
+  def nxUsername = project.hasProperty('nexusUsername') ? nexusUsername	: "nexusUsernameNotSet"
+  def nxPassword = project.hasProperty('nexusPassword') ? nexusPassword : "nexusPasswordNotSet"
+ 
+  repositories {
+      mavenDeployer {
+            repository(url: nexusReleaseRepoURL) {
+                authentication(userName: nxUsername, password: nxPassword)
+            }
+            snapshotRepository(url: nexusSnapshotRepoURL) {
+                authentication(userName: nxUsername, password: nxPassword)
+            }
+      }
+  }
+}
+

@@ -1,0 +1,12 @@
+# Ignore .props files as they change with each user
+
+Diagrams/*.props
+
+.git
+.gradle
+.settings
+bin
+build
+
+.classpath
+.project
